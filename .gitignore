@@ -5,3 +5,4 @@ data/
 mlflow*.db
 reports/
 mlruns*/s
+__pycache__
