@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource
+  namespace: heart-disease
+data:
+  prometheus.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: heart-disease
+data:
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: Heart Disease MLOps
+        orgId: 1
+        folder: MLOps
+        type: file
+        disableDeletion: true
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard
+  namespace: heart-disease
+data:
+  heart-disease-api.json: |
+    {
+      "annotations":{"list":[]},
+      "editable":true,
+      "graphTooltip":1,
+      "panels":[
+        {"type":"stat","title":"Total API Requests","gridPos":{"h":5,"w":6,"x":0,"y":0},"targets":[{"expr":"sum(api_requests_total)","refId":"A"}]},
+        {"type":"stat","title":"Total Predictions","gridPos":{"h":5,"w":6,"x":6,"y":0},"targets":[{"expr":"sum(model_predictions_total)","refId":"A"}]},
+        {"type":"stat","title":"Model Loaded","gridPos":{"h":5,"w":6,"x":12,"y":0},"targets":[{"expr":"model_loaded","refId":"A"}]},
+        {"type":"stat","title":"Average Latency (s)","gridPos":{"h":5,"w":6,"x":18,"y":0},"targets":[{"expr":"rate(api_request_latency_seconds_sum[5m]) / rate(api_request_latency_seconds_count[5m])","refId":"A"}]},
+        {"type":"timeseries","title":"Request Rate","gridPos":{"h":8,"w":12,"x":0,"y":5},"targets":[{"expr":"sum(rate(api_requests_total[1m]))","refId":"A","legendFormat":"requests/sec"}]},
+        {"type":"timeseries","title":"Predictions by Class","gridPos":{"h":8,"w":12,"x":12,"y":5},"targets":[{"expr":"sum by (prediction) (rate(model_predictions_total[1m]))","refId":"A","legendFormat":"prediction {{prediction}}"}]},
+        {"type":"timeseries","title":"HTTP Requests by Status","gridPos":{"h":8,"w":12,"x":0,"y":13},"targets":[{"expr":"sum by (status) (rate(api_requests_total[1m]))","refId":"A","legendFormat":"status {{status}}"}]},
+        {"type":"timeseries","title":"Average Request Latency","gridPos":{"h":8,"w":12,"x":12,"y":13},"targets":[{"expr":"rate(api_request_latency_seconds_sum[1m]) / rate(api_request_latency_seconds_count[1m])","refId":"A","legendFormat":"latency"}]}
+      ],
+      "schemaVersion":39,
+      "style":"dark",
+      "tags":["mlops","heart-disease","api"],
+      "templating":{"list":[]},
+      "time":{"from":"now-30m","to":"now"},
+      "title":"Heart Disease API Monitoring",
+      "uid":"heart-disease-api",
+      "version":1
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: heart-disease
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.2.2
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: datasource
+              mountPath: /etc/grafana/provisioning/datasources/prometheus.yml
+              subPath: prometheus.yml
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yml
+              subPath: dashboards.yml
+            - name: dashboard
+              mountPath: /var/lib/grafana/dashboards/heart-disease-api.json
+              subPath: heart-disease-api.json
+      volumes:
+        - name: datasource
+          configMap:
+            name: grafana-datasource
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboard
+          configMap:
+            name: grafana-dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: heart-disease
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

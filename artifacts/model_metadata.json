@@ -1,0 +1,37 @@
+{
+  "model": "Random Forest",
+  "features": [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "metrics": {
+    "model": "Random Forest",
+    "run_id": "16d79a6376144736a2555b64970e99f0",
+    "best_params": {
+      "classifier__min_samples_leaf": 4
+    },
+    "cv_accuracy_mean": 0.7931972789115647,
+    "cv_precision_mean": 0.7748612440191387,
+    "cv_recall_mean": 0.7826086956521738,
+    "cv_roc_auc_mean": 0.9029852595069986,
+    "test_accuracy": 0.8688524590163934,
+    "test_precision": 0.8125,
+    "test_recall": 0.9285714285714286,
+    "test_roc_auc": 0.9491341991341992
+  },
+  "random_seed": 42,
+  "threshold": 0.5,
+  "selection_metric": "cv_roc_auc_mean",
+  "serialization": "pickle"
+}

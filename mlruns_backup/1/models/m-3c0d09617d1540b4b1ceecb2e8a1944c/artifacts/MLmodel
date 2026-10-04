@@ -1,0 +1,24 @@
+artifact_path: /Users/nandinisharma/Documents/mtech/3sem/mlops/assignment1/solution/solution_v2/heart_disease_mlops_final/mlruns/1/models/m-3c0d09617d1540b4b1ceecb2e8a1944c/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.11.17
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.1
+    skops_trusted_types:
+    - numpy.dtype
+mlflow_version: 3.16.1
+model_id: m-3c0d09617d1540b4b1ceecb2e8a1944c
+model_size_bytes: 197784
+model_uuid: m-3c0d09617d1540b4b1ceecb2e8a1944c
+prompts: null
+run_id: 0083a80e0f9b412c9b0146d2fd992487
+utc_time_created: '2026-10-02 12:25:06.925485'
