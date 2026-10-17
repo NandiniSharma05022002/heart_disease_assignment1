@@ -25,31 +25,32 @@ The implementation is intentionally local-first so every assignment component ca
 
 ## 1. Assignment coverage
 
-The assignment requires data acquisition/EDA, two classifiers and evaluation, MLflow tracking, reusable packaging, tests and CI/CD, Docker, Kubernetes LoadBalancer deployment, monitoring/logging, and a professional report. fileciteturn6file0L10-L40
+The assignment covers data acquisition and EDA, model evaluation and tracking, reusable packaging, tests and CI/CD, Docker, Kubernetes deployment, monitoring/logging, and a professional report.
 
-The repository contains the requested code, Dockerfile, requirements, cleaned dataset/download path, EDA/training/inference scripts, tests, GitHub Actions workflow, Kubernetes manifests, screenshot directory, and report template. fileciteturn6file0L41-L56
+The repository includes the application code, Dockerfile, requirements, data preparation and modeling scripts, tests, GitHub Actions workflow, Kubernetes manifests, and report materials.
 
 ## 2. Prerequisites
 
-- Python 3.11
-- Docker Desktop
-- `kubectl`
+- Python 3.11 (the workflow and Docker image use Python 3.11)
+- Docker Engine/Desktop
 - Minikube
 - Git
+
+On a Linux VM, `kubectl` is optional: use `minikube kubectl -- <kubectl arguments>` in the commands below. Make sure the VM user can run Docker (`docker info` should work without a permission error).
 
 Optional for local MLflow UI:
 
 ```bash
-mlflow ui --backend-store-uri "sqlite:///$(pwd)/mlflow.db" --host 127.0.0.1 --port 5000
+python -m mlflow ui --backend-store-uri "sqlite:///$PWD/mlflow.db" --host 127.0.0.1 --port 5000
 ```
 
 ## 3. Environment setup
 
 ```bash
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 Verify the active environment:
@@ -62,7 +63,7 @@ python -m pip --version
 
 ## 4. Data acquisition, cleaning and EDA
 
-If `data/processed/heart_disease.csv` is not already present:
+The scripts create the required `data/` subdirectories. If the processed file is missing (for example, after cloning without data files), run:
 
 ```bash
 python scripts/download_data.py
@@ -81,7 +82,7 @@ Generated figures:
 - `reports/figures/class_balance.png`
 - `reports/figures/correlation_heatmap.png`
 
-The preprocessing step converts the original UCI target valueminikube service heart-disease-api -n heart-disease --urls `0..4` to binary `0/1` and preserves missing values for the sklearn pipeline to handle. The model pipeline uses median imputation + standardization for numeric features and most-frequent imputation + one-hot encoding for categorical features.
+The preparation step converts the original UCI target values `0..4` to binary `0/1` and preserves missing feature values for the sklearn pipeline to handle. The model pipeline uses median imputation and standardization for numeric features, and most-frequent imputation and one-hot encoding for categorical features.
 
 ## 5. Model training + MLflow
 
@@ -111,6 +112,16 @@ MLflow uses a SQLite backend stored in the project root:
 ```text
 mlflow.db
 ```
+
+Always run training and the MLflow UI from the same activated `.venv` using `python -m ...`; this avoids accidentally running a different globally installed MLflow. Do not copy `mlflow.db` or `mlruns/` from another machine into a fresh VM: MLflow databases can contain machine-specific artifact paths and migration versions. If you already copied an old database, stop MLflow and move the old files aside as backups, then run training to create a VM-local database and artifacts. For example, only when these paths exist:
+
+```bash
+mv mlflow.db mlflow.db.old
+mv mlruns mlruns.old
+python -m src.heart_disease_mlops.train
+```
+
+Keep the backup if you need the old runs. If `python -m mlflow ui` reports that `index.html` is missing, confirm MLflow is imported from the active `.venv` with `python -c 'import mlflow; print(mlflow.__file__)'`; reinstall the PyPI package into that environment with `python -m pip install --force-reinstall --no-cache-dir 'mlflow>=2.17,<4'`.
 
 Start the UI in another terminal:
 
@@ -278,20 +289,31 @@ rate(api_request_latency_seconds_sum[1m]) / rate(api_request_latency_seconds_cou
 
 ## 10. Kubernetes / Minikube deployment
 
-The assignment explicitly allows Minikube and requires a Deployment plus LoadBalancer/Ingress exposure. fileciteturn6file0L25-L29
+The assignment allows Minikube and requires a Deployment plus LoadBalancer or Ingress exposure.
 
 Start Minikube:
 
 ```bash
-minikube start
+minikube start --driver=docker
 ```
 
-Build the application image inside Minikube:
+To discard and recreate the cluster instead, run `minikube delete` first. This deletes the Minikube cluster and its Kubernetes resources, including Deployments and Prometheus history, but does not delete the project source files.
+
+Build the image with Docker on the VM, then explicitly load it into Minikube. This uses the Docker build cache on repeat builds; Minikube and the VM's Docker image stores are separate, so the `minikube image load` step is required. Run these commands from the project root, where the `Dockerfile` and `artifacts/model.pkl` exist:
+
+```bash
+docker build -t heart-disease-api:latest .
+minikube image load heart-disease-api:latest
+minikube image ls | grep heart-disease-api
+```
+
+If you prefer Minikube to perform the build itself, use `minikube image build -t heart-disease-api:latest .` instead of the `docker build` and `minikube image load` commands above. The image tag must match `image:` in `k8s/deployment.yaml` (`heart-disease-api:latest`).
 
 Apply all manifests with Kustomize so the namespace is created before namespaced resources:
 
 ```bash
 minikube kubectl -- apply -k k8s/
+minikube kubectl -- rollout status deployment/heart-disease-api -n heart-disease
 ```
 
 Verify the API:
@@ -314,10 +336,47 @@ Get the Minikube LoadBalancer URL:
 minikube service heart-disease-api -n heart-disease --url
 ```
 
-if above command gives error please run
+On a remote VM, the Minikube URL may use a private VM network address that is not reachable directly from your laptop. To verify from a shell on the VM, port-forward the Kubernetes Service in one terminal:
 
 ```bash
-minikube image build -t heart-disease-api:latest .
+minikube kubectl -- port-forward svc/heart-disease-api -n heart-disease 8000:80
+```
+
+Keep that terminal open, then use another VM terminal to call `http://127.0.0.1:8000`:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl -X POST http://127.0.0.1:8000/predict \
+  -H 'Content-Type: application/json' \
+  --data @data/sample_patient.json
+```
+
+Port-forward Prometheus and Grafana in separate terminals as described in Section 11. Use an SSH local port-forward from your laptop if you need to open these VM-local ports in your laptop browser.
+
+If the API pods show `ImagePullBackOff` or `ErrImageNeverPull`, Kubernetes cannot find or pull the image configured in the Deployment. The LoadBalancer Service will not have a backend pod until at least one API pod is ready. Check the image value and detailed pod events:
+
+```bash
+minikube kubectl -- get deployment heart-disease-api -n heart-disease \
+  -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+minikube kubectl -- get pods -n heart-disease
+minikube kubectl -- describe pod -n heart-disease -l app=heart-disease-api
+```
+
+The image name and tag printed from the Deployment must match the image loaded into Minikube. If the Deployment uses `heart-disease-api:latest`, rebuild/import that exact tag, reapply the manifests, and restart the Deployment:
+
+```bash
+docker build -t heart-disease-api:latest .
+minikube image load heart-disease-api:latest
+minikube kubectl -- apply -k k8s/
+minikube kubectl -- rollout restart deployment/heart-disease-api -n heart-disease
+minikube kubectl -- rollout status deployment/heart-disease-api -n heart-disease
+minikube kubectl -- get pods -n heart-disease
+```
+
+If the pods still cannot start, inspect the **Events** section at the end of `describe pod`. Common causes are a tag mismatch, building from a directory without the project `Dockerfile`, or an image build failure. Do not continue to endpoint checks until both API pods show `Running` and `1/1` ready. Then retry:
+
+```bash
+minikube service heart-disease-api -n heart-disease --url
 ```
 
 Use the returned URL to test:
@@ -422,7 +481,7 @@ Production deployment is performed separately to the local Minikube cluster usin
 
 ## 13. Assignment evidence checklist
 
-Capture screenshots from your actual run. The assignment specifically asks for deployment screenshots and a professional report containing setup, EDA/model choices, experiment tracking, architecture, CI/CD/deployment evidence and repository information. fileciteturn6file0L33-L50
+Capture screenshots from your actual run. The report should include setup, EDA/model choices, experiment tracking, architecture, CI/CD and deployment evidence, and repository information.
 
 Recommended evidence set:
 
@@ -448,7 +507,7 @@ Do not fabricate values or screenshots. Use the exact results produced by your o
 
 ## 14. Final report
 
-Use `REPORT_TEMPLATE.md` as the structure for the final 10-page report. The assignment requires a written report and a short video demonstrating the overall pipeline. fileciteturn6file0L41-L52
+Use `FINAL_REPORT.md` as the report draft and `REPORT_TEMPLATE.md` as an alternate outline. Complete the remaining evidence checklist in the report, then export or print it to the required final format. The assignment also requires a short video demonstrating the overall pipeline.
 
 The report should contain your actual:
 
@@ -507,12 +566,13 @@ The report should contain your actual:
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
-└── REPORT_TEMPLATE.md
+├── REPORT_TEMPLATE.md
+└── FINAL_REPORT.md
 ```
 
 ## 16. Production-readiness note
 
-The assignment requires scripts to work from a clean requirements-based setup, the model to serve in an isolated Docker environment, and the pipeline to fail clearly on code/test errors. fileciteturn6file0L52-L56
+The project is intended to run from a clean requirements-based setup, serve the model in an isolated Docker environment, and fail CI when code or tests fail.
 
 The repository therefore keeps the serving artifact self-contained, tests the artifact and API, and smoke-tests the Docker image in CI.
 

@@ -29,6 +29,7 @@ def prepare(input_path: Path = RAW_FILE, output_path: Path = OUT_FILE) -> pd.Dat
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
     print(f"Saved {len(df)} rows to {output_path}")
+    print("Null or missing values per column")
     print(df.isna().sum())
     return df
 
