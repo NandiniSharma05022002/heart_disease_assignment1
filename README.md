@@ -1,6 +1,6 @@
-# Heart Disease MLOps — End-to-End Assignment
+# Heart Disease MLOps Pipeline
 
-This repository implements the complete MLOps assignment for binary heart-disease classification using the UCI Cleveland Heart Disease dataset.
+This repository contains an end-to-end machine learning pipeline for binary heart-disease classification using the UCI Cleveland Heart Disease dataset.
 
 **End-to-end flow:**
 
@@ -18,16 +18,14 @@ UCI data
   → Prometheus
   → Grafana dashboard
   → Pytest + Ruff + GitHub Actions
-  → final report + screenshots + demo video
+  → project report and demo
 ```
 
-The implementation is intentionally local-first so every assignment component can be demonstrated without a paid cloud account. The Kubernetes deployment uses Minikube, which is explicitly permitted by the assignment.
+The project runs locally and uses Minikube for Kubernetes deployment, so it can be explored without a paid cloud account.
 
-## 1. Assignment coverage
+## 1. Project overview
 
-The assignment covers data acquisition and EDA, model evaluation and tracking, reusable packaging, tests and CI/CD, Docker, Kubernetes deployment, monitoring/logging, and a professional report.
-
-The repository includes the application code, Dockerfile, requirements, data preparation and modeling scripts, tests, GitHub Actions workflow, Kubernetes manifests, and report materials.
+The repository includes data preparation and EDA, model training and MLflow tracking, a FastAPI prediction service, Docker packaging, Kubernetes manifests, Prometheus/Grafana monitoring, tests, and GitHub Actions CI.
 
 ## 2. Prerequisites
 
@@ -133,8 +131,6 @@ python -m mlflow ui \
 ```
 
 Open `http://127.0.0.1:5000`.
-
-Capture one screenshot showing both model runs, their parameters/metrics, and model/plot artifacts.
 
 > The MLflow sklearn flavor may use `skops` serialization. The training code explicitly trusts only the model types required by the locally created Logistic Regression and Random Forest artifacts. The standalone serving artifact is still Python pickle, as required by the selected packaging approach.
 
@@ -289,7 +285,7 @@ rate(api_request_latency_seconds_sum[1m]) / rate(api_request_latency_seconds_cou
 
 ## 10. Kubernetes / Minikube deployment
 
-The assignment allows Minikube and requires a Deployment plus LoadBalancer or Ingress exposure.
+The Kubernetes manifests define a Deployment and LoadBalancer Service for local Minikube deployment.
 
 Start Minikube:
 
@@ -475,58 +471,18 @@ Docker health/metrics smoke test
 upload model, MLflow and test artifacts (also when an earlier step fails)
 ```
 
-Push the repository to GitHub and capture a successful Actions run. The workflow is designed to fail when linting, training, tests or the Docker smoke test fails. GitHub Actions uploads any generated model, MLflow and test artifacts even when a prior step fails; the Actions run also retains its step logs.
+The workflow fails if linting, training, tests, image building, or the container smoke test fails. It uploads generated model and test artifacts even if an earlier step fails; GitHub retains the run logs and uploaded artifacts.
 
-Production deployment is performed separately to the local Minikube cluster using the Deployment and LoadBalancer Service manifests in `k8s/` (see Section 10). This local deployment is not triggered by GitHub Actions: a hosted Actions runner cannot reach your local Minikube cluster without an externally reachable cluster and configured credentials. After deploying, verify the API and capture the deployment screenshots listed below.
+Deployment to Minikube is performed separately with the Deployment and LoadBalancer Service manifests in `k8s/` (see Section 10). The workflow does not deploy to the local cluster; a hosted Actions runner cannot reach it without an externally reachable cluster and configured credentials.
 
-## 13. Assignment evidence checklist
+## 13. Project report and demo
 
-Capture screenshots from your actual run. The report should include setup, EDA/model choices, experiment tracking, architecture, CI/CD and deployment evidence, and repository information.
+- [Project report](heart_disease_mlops_report.pdf) — methodology, results, architecture, and implementation details.
+- [Demo video](mlops_assignment1.mp4) — walkthrough of the pipeline.
 
-Recommended evidence set:
+Repository: [heart_disease_assignment1](https://github.com/NandiniSharma05022002/heart_disease_assignment1). The GitHub Actions workflow is in `.github/workflows/ci.yml`; Kubernetes manifests are in `k8s/`.
 
-1. EDA feature distributions.
-2. Class-balance chart.
-3. Correlation heatmap.
-4. MLflow experiment showing both model runs.
-5. Model comparison metrics / final selected model.
-6. Swagger `/docs`.
-7. Successful `/health`.
-8. Successful `/predict`.
-9. `/metrics` showing custom metrics.
-10. Docker Compose services running.
-11. Kubernetes pods showing `2/2` API replicas ready.
-12. Kubernetes Service showing `LoadBalancer`.
-13. Successful LoadBalancer `/health` and `/predict`.
-14. Prometheus target showing API `UP`.
-15. Prometheus query result.
-16. Grafana monitoring dashboard.
-17. Successful GitHub Actions workflow.
-
-Do not fabricate values or screenshots. Use the exact results produced by your own execution.
-
-## 14. Final report
-
-Use `FINAL_REPORT.md` as the report draft and `REPORT_TEMPLATE.md` as an alternate outline. Complete the remaining evidence checklist in the report, then export or print it to the required final format. The assignment also requires a short video demonstrating the overall pipeline.
-
-The report should contain your actual:
-
-- dataset and cleaning decisions;
-- EDA observations;
-- model configurations and selection rationale;
-- cross-validation and holdout metrics;
-- MLflow screenshots/run IDs;
-- reusable artifact explanation;
-- API examples;
-- Docker evidence;
-- Kubernetes/LoadBalancer evidence;
-- Prometheus/Grafana evidence;
-- CI/CD screenshot;
-- architecture diagram;
-- repository link;
-- video/demo link.
-
-## 15. Repository structure
+## 14. Repository structure
 
 ```text
 .
@@ -551,7 +507,6 @@ The report should contain your actual:
 │   └── grafana.yaml
 ├── monitoring/prometheus.yml
 ├── notebooks/01_eda_and_modeling.md
-├── reports/figures/
 ├── scripts/
 │   ├── download_data.py
 │   ├── prepare_data.py
@@ -565,15 +520,8 @@ The report should contain your actual:
 ├── tests/
 ├── Dockerfile
 ├── docker-compose.yml
-├── requirements.txt
-├── REPORT_TEMPLATE.md
-└── FINAL_REPORT.md
+├── heart_disease_mlops_report.pdf
+├── mlops_assignment1.mp4
+├── pyproject.toml
+└── requirements.txt
 ```
-
-## 16. Production-readiness note
-
-The project is intended to run from a clean requirements-based setup, serve the model in an isolated Docker environment, and fail CI when code or tests fail.
-
-The repository therefore keeps the serving artifact self-contained, tests the artifact and API, and smoke-tests the Docker image in CI.
-
-For a real production system, the next improvements would be authentication, secret management, persistent monitoring storage, model/data drift detection, calibration, automated retraining, and a managed cloud deployment.
