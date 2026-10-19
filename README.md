@@ -478,7 +478,7 @@ Deployment to Minikube is performed separately with the Deployment and LoadBalan
 ## 13. Project report and demo
 
 - [Project report](heart_disease_mlops_report.pdf) — methodology, results, architecture, and implementation details.
-- [Demo video](mlops_assignment1.mp4) — walkthrough of the pipeline.
+- [End-to-end demo video](mlops_assignment1_demo_vid.mp4) — walkthrough from data preparation and model training through MLflow, API prediction, Minikube deployment, and monitoring.
 
 Repository: [heart_disease_assignment1](https://github.com/NandiniSharma05022002/heart_disease_assignment1). The GitHub Actions workflow is in `.github/workflows/ci.yml`; Kubernetes manifests are in `k8s/`.
 
@@ -521,7 +521,7 @@ Repository: [heart_disease_assignment1](https://github.com/NandiniSharma05022002
 ├── Dockerfile
 ├── docker-compose.yml
 ├── heart_disease_mlops_report.pdf
-├── mlops_assignment1.mp4
+├── mlops_assignment1_demo_vid.mp4
 ├── pyproject.toml
 └── requirements.txt
 ```
